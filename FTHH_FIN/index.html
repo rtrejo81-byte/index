@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1"
+  />
+  <title>FTTH-SV-RT - Sistema de Mapeo</title>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
+
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-dark: #1e3a8a;
+      --secondary: #3b82f6;
+      --accent: #f59e0b;
+      --background: #0f172a;
+      --surface: #1e293b;
+      --surface-light: #334155;
+      --text: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --error: #ef4444;
+      --success: #10b981;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--background);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(90deg, var(--primary-dark) 0%, var(--background) 100%);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--surface-light);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      gap: 10px;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .logo {
+      font-size: 24px;
+      color: var(--secondary);
+      flex: 0 0 auto;
+    }
+
+    .brand-wrap {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .app-name {
+      font-size: 18px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.1;
+    }
+
+    .app-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      flex: 1 1 auto;
+    }
+
+    .map-type-selector {
+      display: flex;
+      background-color: var(--surface);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--surface-light);
+    }
+
+    .map-type-btn {
+      padding: 6px 10px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+    }
+
+    .map-type-btn.active {
+      background-color: var(--secondary);
+      color: white;
+    }
+
+    select,
+    button,
+    .file-upload-label {
+      background-color: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--surface-light);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      line-height: 1.2;
+    }
+
+    select:hover,
+    button:hover,
+    .file-upload-label:hover {
+      background-color: var(--surface-light);
+    }
+
+    .file-upload-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .file-upload-label input {
+      display: none;
+    }
+
+    .hamburger {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--surface-light);
+      border-radius: 8px;
+      padding: 6px 10px;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .map-container {
+      flex: 1;
+      position: relative;
+      min-width: 0;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .map-controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(30, 41, 59, 0.8);
+      padding: 8px;
+      border-radius: 10px;
+      backdrop-filter: blur(4px);
+      max-width: 46vw;
+    }
+
+    .map-control-btn {
+      background-color: var(--surface-light);
+      border: 1px solid #475569;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      font-size: 13px;
+    }
+
+    .map-control-btn:hover {
+      background-color: #475569;
+    }
+
+    .sidebar {
+      width: 380px;
+      background-color: var(--surface);
+      border-left: 1px solid var(--surface-light);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar.hidden {
+      display: none;
+    }
+
+    .sidebar-section {
+      margin-bottom: 18px;
+    }
+
+    .sidebar-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--surface-light);
+    }
+
+    .assets-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+
+    .asset-item {
+      background-color: var(--surface-light);
+      border-radius: 10px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .asset-item:hover {
+      background-color: #475569;
+    }
+
+    .asset-item.selected {
+      border: 2px solid var(--secondary);
+    }
+
+    .asset-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      gap: 6px;
+    }
+
+    .asset-name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .asset-type {
+      font-size: 11px;
+      background-color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+
+    .asset-coords {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .stats-container {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .stat-box {
+      flex: 1;
+      background-color: var(--surface-light);
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--secondary);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .search-box {
+      margin-bottom: 12px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      background-color: var(--surface-light);
+      color: var(--text);
+      border: 1px solid #475569;
+    }
+
+    .cable-options {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .cable-option {
+      flex: 1;
+      padding: 8px;
+      text-align: center;
+      border-radius: 8px;
+      background-color: var(--surface-light);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .cable-option.selected {
+      background-color: var(--secondary);
+      color: white;
+    }
+
+    .distance-display {
+      background-color: var(--surface-light);
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      text-align: center;
+      font-weight: bold;
+      color: var(--secondary);
+    }
+
+    .cable-totals {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .cable-total {
+      flex: 1;
+      background-color: var(--surface-light);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .cable-total.fo {
+      border-left: 4px solid #3b82f6;
+    }
+
+    .cable-total.drop {
+      border-left: 4px solid #f59e0b;
+    }
+
+    .cable-total-value {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .cable-total-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .cable-segments {
+      margin-top: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .cable-segment {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--surface-light);
+      font-size: 13px;
+    }
+
+    .cable-segment:last-child {
+      border-bottom: none;
+    }
+
+    .manual-coords {
+      background-color: var(--surface-light);
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 12px;
+    }
+
+    .manual-coords-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .manual-coords-btn {
+      grid-column: 1 / span 2;
+      background-color: var(--secondary);
+      color: white;
+      border: none;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .clear-screen-btn {
+      background-color: var(--error);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      text-align: center;
+    }
+
+    .clear-screen-btn:hover {
+      opacity: 0.9;
+    }
+
+    /* Popups del mapa */
+    .popup-content {
+      font-size: 12px;
+    }
+    .popup-title {
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .popup-coords {
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    .popup-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .popup-btn {
+      background: var(--secondary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    /* Etiquetas en el mapa */
+    .map-label {
+      background-color: rgba(30, 41, 59, 0.8);
+      border: 1px solid #475569;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 12px;
+      font-weight: bold;
+      white-space: nowrap;
+      pointer-events: none;
+      backdrop-filter: blur(2px);
+      color: #fff;
+    }
+
+    /* Etiquetas de distancia */
+    .distance-label {
+      background-color: rgba(59, 130, 246, 0.85);
+      color: white;
+      border: 1px solid #3b82f6;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: bold;
+      pointer-events: none;
+      backdrop-filter: blur(2px);
+    }
+
+    /* Modal de exportación */
+    .export-modal,
+    .gps-modal {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .export-content,
+    .gps-content {
+      background-color: var(--surface);
+      padding: 16px;
+      border-radius: 12px;
+      width: 92%;
+      max-width: 420px;
+      border: 1px solid var(--surface-light);
+    }
+    .export-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .export-option,
+    .share-option {
+      padding: 10px;
+      background-color: var(--surface-light);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .export-option:hover,
+    .share-option:hover {
+      background-color: var(--secondary);
+    }
+
+    /* Modal GPS form */
+    .gps-form {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .gps-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 8px;
+      align-items: center;
+    }
+    .gps-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn-primary {
+      background: var(--success);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .btn-outline {
+      background: var(--surface-light);
+      color: #fff;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .hint {
+      background-color: var(--primary);
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-top: 12px;
+    }
+
+    .copyright {
+      text-align: center;
+      margin-top: auto;
+      padding-top: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      .main-content {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        height: 40%;
+        border-left: none;
+        border-top: 1px solid var(--surface-light);
+      }
+      .hamburger {
+        display: inline-flex;
+      }
+      .header {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .header-controls {
+        justify-content: center;
+      }
+      /* Controles del mapa más compactos en móvil */
+      .map-controls {
+        top: 8px;
+        right: 8px;
+        padding: 6px;
+        gap: 6px;
+        max-width: 70vw;
+      }
+      .map-control-btn span {
+        display: none; /* Sólo iconos en móvil para ahorrar espacio */
+      }
+    }
+
+    @media (max-width: 420px) {
+      .app-name {
+        font-size: 16px;
+      }
+      .app-subtitle {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <button id="toggle-sidebar" class="hamburger" title="Mostrar/ocultar panel">
+        <i class="fas fa-bars"></i><span> Menú</span>
+      </button>
+
+      <div class="logo-container">
+        <div class="logo">
+          <i class="fas fa-map-marked-alt"></i>
+        </div>
+        <div class="brand-wrap">
+          <h1 class="app-name">FTTH-SV-RT</h1>
+          <div class="app-subtitle">Sistema de Mapeo de Infraestructura FTTH</div>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="map-type-selector">
+          <button class="map-type-btn active" id="standard-map-btn">
+            <i class="fas fa-map"></i> <span>Estándar</span>
+          </button>
+          <button class="map-type-btn" id="satellite-map-btn">
+            <i class="fas fa-satellite"></i> <span>Satélite</span>
+          </button>
+          <button class="map-type-btn" id="googleearth-map-btn">
+            <i class="fas fa-globe-americas"></i> <span>Google Earth</span>
+          </button>
+        </div>
+
+        <select id="asset-type-selector" title="Tipo de activo para clic en mapa">
+          <option value="pole">POSTE</option>
+          <option value="nap">NAP</option>
+          <option value="cab">Cable FO</option>
+          <option value="fat">FAT</option>
+          <option value="olt">OLT</option>
+          <option value="c12">C-12</option>
+          <option value="emp">EMPALME</option>
+
+        </select>
+
+        <button id="add-gps-btn" title="Agregar activo con GPS">
+          <i class="fas fa-crosshairs"></i> Agregar con GPS
+        </button>
+
+        <button id="export-data" title="Exportar CSV/KML">
+          <i class="fas fa-download"></i> Exportar
+        </button>
+
+        <label class="file-upload-label" title="Importar CSV/KML">
+          <i class="fas fa-upload"></i> Importar
+          <input type="file" id="import-data" accept=".csv,.kml" />
+        </label>
+
+        <button id="clear-screen" title="Limpiar todo">
+          <i class="fas fa-trash"></i> Limpiar
+        </button>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <div class="map-container">
+        <div id="map"></div>
+
+        <div class="map-controls" id="map-controls">
+          <button class="map-control-btn" id="locate-me-btn" title="Centrar en mi ubicación">
+            <i class="fas fa-location-arrow"></i><span> Mi ubicación</span>
+          </button>
+          <button class="map-control-btn" id="zoom-in-btn" title="Acercar">
+            <i class="fas fa-plus"></i><span> Acercar</span>
+          </button>
+          <button class="map-control-btn" id="zoom-out-btn" title="Alejar">
+            <i class="fas fa-minus"></i><span> Alejar</span>
+          </button>
+          <button class="map-control-btn" id="toggle-labels-btn" title="Mostrar/ocultar etiquetas">
+            <i class="fas fa-tags"></i><span> Etiquetas</span>
+          </button>
+        </div>
+      </div>
+
+      <aside class="sidebar" id="sidebar">
+        <!-- Estadísticas -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">Estadísticas</div>
+          <div class="stats-container">
+            <div class="stat-box">
+              <div class="stat-value" id="stat-assets">0</div>
+              <div class="stat-label">Activos</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="stat-cables">0</div>
+              <div class="stat-label">Cables</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="stat-distance">0 m</div>
+              <div class="stat-label">Distancia FO</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Buscar -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">Buscar</div>
+          <div class="search-box">
+            <input id="search-input" type="text" placeholder="Buscar por etiqueta..." />
+          </div>
+        </div>
+
+        <!-- Lista de activos -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">Activos</div>
+          <div id="assets-list" class="assets-list"></div>
+        </div>
+
+        <!-- Cable -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">Cable</div>
+          <div class="cable-options">
+            <div class="cable-option selected" data-type="fo">FO</div>
+            <div class="cable-option" data-type="drop">DROP</div>
+          </div>
+          <div class="distance-display" id="cable-distance">Distancia: 0.00 metros</div>
+          <div class="distance-display" id="segment-distance">Último segmento: 0.00 metros</div>
+
+          <div class="cable-totals" id="cable-totals">
+            <div class="cable-total fo">
+              <div class="cable-total-value" id="total-fo">0 m</div>
+              <div class="cable-total-label">Total FO</div>
+            </div>
+            <div class="cable-total drop">
+              <div class="cable-total-value" id="total-drop">0 m</div>
+              <div class="cable-total-label">Total DROP</div>
+            </div>
+          </div>
+
+          <div id="cable-segments-container" style="display:none;">
+            <div class="sidebar-title" style="margin-top:10px;">Tramos</div>
+            <div class="cable-segments" id="cable-segments-list"></div>
+          </div>
+
+          <div class="manual-coords">
+            <div style="font-weight:700;margin-bottom:8px;">Agregar por coordenadas</div>
+            <div class="manual-coords-grid">
+              <label>Latitud</label>
+              <input type="number" step="0.000001" id="manual-lat" />
+              <label>Longitud</label>
+              <input type="number" step="0.000001" id="manual-lng" />
+              <button class="manual-coords-btn" id="add-manual-point">
+                Agregar punto con coords
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Editor -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">Editor</div>
+          <div id="editor-panel">
+            <div class="editor-grid">
+              <span class="editor-label">ID:</span>
+              <div id="editor-id" style="font-family:monospace; font-size:12px;color:#9ca3af;">—</div>
+
+              <span class="editor-label">Etiqueta:</span>
+              <input id="editor-label" />
+
+              <span class="editor-label">Tipo:</span>
+              <select id="editor-type">
+                <option value="pole">POSTE</option>
+                <option value="nap">NAP</option>
+                <option value="cab">Cable FO</option>
+                <option value="fat">FAT</option>
+                <option value="olt">OLT</option>
+                <option value="c12">C-12</option>
+                <option value="emp">EMPALME</option>
+
+              </select>
+
+              <span class="editor-label">Latitud:</span>
+              <input type="number" step="0.000001" id="editor-lat" />
+
+              <span class="editor-label">Longitud:</span>
+              <input type="number" step="0.000001" id="editor-lng" />
+
+              <span class="editor-label">Propiedades (JSON):</span>
+              <textarea id="editor-props"></textarea>
+            </div>
+            <button class="delete-btn" id="delete-asset">
+              <i class="fas fa-trash"></i> Eliminar Activo
+            </button>
+          </div>
+          <div id="no-selection-message">Selecciona un activo del mapa o de la lista para editarlo.</div>
+        </div>
+
+        <button class="clear-screen-btn" id="clear-sidebar-btn">
+          <i class="fas fa-broom"></i> Limpiar Proyecto
+        </button>
+
+        <div class="hint">
+          <i class="fas fa-lightbulb"></i> Consejo: Haz clic en el mapa para agregar un activo
+          del tipo seleccionado. Para cables, haz clic en varios puntos para crear una ruta.
+          Doble clic para finalizar.
+        </div>
+
+        <div class="copyright">
+          &copy; 2025 FTTH-SV-RT - Todos los derechos reservados para Roberto Trejo
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Modal de Exportación -->
+  <div class="export-modal" id="export-modal">
+    <div class="export-content">
+      <h2>Exportar Datos</h2>
+      <p>Selecciona el formato de exportación:</p>
+
+      <div class="export-options">
+        <div class="export-option" data-format="csv">
+          <i class="fas fa-file-csv"></i> CSV
+        </div>
+        <div class="export-option" data-format="kml">
+          <i class="fas fa-globe-americas"></i> KML
+        </div>
+      </div>
+
+      <div id="share-options-container" style="display: none;">
+        <p>¿Cómo deseas compartir?</p>
+        <div class="share-options">
+          <div class="share-option" data-action="save">
+            <i class="fas fa-save"></i> Guardar localmente
+          </div>
+          <div class="share-option" data-action="email">
+            <i class="fas fa-envelope"></i> Compartir por correo
+          </div>
+          <div class="share-option" data-action="whatsapp">
+            <i class="fab fa-whatsapp"></i> Compartir por WhatsApp
+          </div>
+        </div>
+      </div>
+
+      <button id="close-export" style="margin-top: 14px; width: 100%;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Modal Agregar con GPS -->
+  <div class="gps-modal" id="gps-modal">
+    <div class="gps-content">
+      <h2 style="margin-bottom:8px;">Agregar activo con GPS</h2>
+      <div class="gps-form">
+        <div class="gps-row">
+          <label>Tipo</label>
+          <select id="gps-type">
+            <option value="pole">POSTE</option>
+            <option value="nap">NAP</option>
+            <option value="fat">FAT</option>
+            <option value="olt">OLT</option>
+            <option value="c12">C-12</option>
+            <option value="emp">EMPALME</option>
+
+          </select>
+        </div>
+        <div class="gps-row">
+          <label>Etiqueta</label>
+          <input id="gps-label" placeholder="Ej: NAP_001 o dejar vacío" />
+        </div>
+        <div class="gps-row">
+          <label>Precisión</label>
+          <select id="gps-accuracy">
+            <option value="true">Alta (más lento)</option>
+            <option value="false" selected>Normal</option>
+          </select>
+        </div>
+        <div id="gps-status" style="font-size:12px;color:#93c5fd;min-height:18px;"></div>
+        <div class="gps-actions">
+          <button class="btn-outline" id="gps-cancel">Cancelar</button>
+          <button class="btn-primary" id="gps-confirm">Obtener ubicación</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // Estado de la aplicación
+    // =========================
+    let assets = [];
+    let selectedAssetId = null;
+    let map;
+    let markers = {};
+    let polylines = {};
+    let labelLayers = {};
+    let distanceLabels = [];
+    let showLabels = true;
+
+    let currentMapType = "standard";
+    let standardTileLayer, satelliteTileLayer, googleEarthTileLayer;
+
+    let currentCableType = "fo";
+    let cablePoints = [];
+    let drawingCable = false;
+    let tempMarkers = [];
+    let tempPolylines = [];
+
+    let selectedExportFormat = null;
+
+    // Íconos personalizados por tipo
+const ICONS = {
+   pole: L.icon({
+        iconUrl:
+          "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png",
+        shadowUrl:
+          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
+      }),
+
+  nap: L.icon({
+    iconUrl: "icons/nap.png",
+    shadowUrl: "icons/shadow.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28],
+  }),
+  fat: L.icon({
+    iconUrl: "icons/fat.png",
+    shadowUrl: "icons/shadow.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28],
+  }),
+  olt: L.icon({
+    iconUrl: "icons/olt.png",
+    shadowUrl: "icons/shadow.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28],
+  }),
+  c12: L.icon({
+    iconUrl: "icons/c12.png",
+    shadowUrl: "icons/shadow.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28],
+  }),
+emp: L.icon({
+    iconUrl: "icons/empalme.png",
+    shadowUrl: "icons/shadow.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28],
+  }),
+
+  default: L.icon({
+    iconUrl: "icons/default.png",
+    shadowUrl: "icons/shadow.png",
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28],
+  }),
+};
+
+
+    // =========================
+    // Inicialización del mapa
+    // =========================
+    function initMap() {
+      map = L.map("map").setView([13.6929, -89.2182], 13);
+
+      standardTileLayer = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxZoom: 19,
+        }
+      );
+
+      satelliteTileLayer = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          attribution: "Tiles &copy; Esri",
+          maxZoom: 19,
+        }
+      );
+
+      // Capa de Google Earth (Google Maps Satelital)
+      googleEarthTileLayer = L.tileLayer(
+        "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        {
+          attribution: "Google Earth",
+          maxZoom: 20,
+          subdomains: ["mt0", "mt1", "mt2", "mt3"],
+        }
+      );
+
+      standardTileLayer.addTo(map);
+
+      // Click en mapa para agregar activo o dibujar cable
+      map.on("click", (e) => {
+        const type = document.getElementById("asset-type-selector").value;
+        if (type === "cab") {
+          // Dibujo de cable
+          drawingCable = true;
+          addCablePoint(e.latlng);
+        } else {
+          addAsset(e.latlng.lat, e.latlng.lng);
+        }
+      });
+
+      // Doble clic para finalizar cable
+      map.on("dblclick", (e) => {
+        if (drawingCable && cablePoints.length > 1) {
+          finishCableDrawing();
+        }
+      });
+    }
+
+    // =========================
+    // Utilidades
+    // =========================
+    function generateId() {
+      return Math.random().toString(36).substring(2, 10);
+    }
+
+    function escapeXML(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+    }
+
+    function downloadFile(filename, content, contentType) {
+      const blob = new Blob([content], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // =========================
+    // Persistencia
+    // =========================
+    function saveData() {
+      localStorage.setItem("ftth_sv_rt_assets", JSON.stringify(assets));
+    }
+
+    function loadSavedData() {
+      const savedAssets = localStorage.getItem("ftth_sv_rt_assets");
+      const savedMapType = localStorage.getItem("ftth_sv_rt_map_type");
+
+      if (savedAssets) {
+        assets = JSON.parse(savedAssets);
+
+        assets.forEach((asset) => {
+          if (asset.type === "cab" && asset.points) {
+            addCableToMap(asset);
+            // Reponer etiquetas de distancia
+            if (asset.points.length > 1) {
+              for (let i = 1; i < asset.points.length; i++) {
+                const a = { lat: asset.points[i - 1][0], lng: asset.points[i - 1][1] };
+                const b = { lat: asset.points[i][0], lng: asset.points[i][1] };
+                const d = calculateDistance(a.lat, a.lng, b.lat, b.lng);
+                addDistanceLabel(a, b, d);
+              }
+            }
+          } else if (asset.lat && asset.lng) {
+            addMarker(asset);
+          }
+          addLabelToAsset(asset);
+        });
+
+        renderAssetsList();
+        updateStats();
+        calculateCableTotals();
+      }
+
+      if (savedMapType) switchMapType(savedMapType);
+    }
+
+    // =========================
+    // Activos (puntos)
+    // =========================
+    function addAsset(lat, lng) {
+      const type = document.getElementById("asset-type-selector").value;
+      const typeLabels = {
+        pole: "POSTE",
+        nap: "NAP",
+        cab: "Cable FO",
+        fat: "FAT",
+        olt: "OLT",
+        c12: "C-12",
+        emp: "EMPALME",
+
+      };
+
+      const id = generateId();
+      const asset = {
+        id,
+        type,
+        label: `${type.toUpperCase()}_${id.substring(0, 4)}`,
+        lat: Number(lat.toFixed(6)),
+        lng: Number(lng.toFixed(6)),
+        props: {},
+      };
+
+      assets.push(asset);
+      addMarker(asset);
+      addLabelToAsset(asset);
+      renderAssetsList();
+      updateStats();
+      saveData();
+      selectAsset(id);
+    }
+
+    function addMarker(asset) {
+      if (markers[asset.id]) map.removeLayer(markers[asset.id]);
+
+      const icon =
+        ICONS[asset.type] ||
+        ICONS.default;
+
+      const marker = L.marker([asset.lat, asset.lng], {
+        draggable: true,
+        icon,
+      }).addTo(map);
+
+      marker.on("dragend", function () {
+        const p = marker.getLatLng();
+        updateAsset(asset.id, {
+          lat: Number(p.lat.toFixed(6)),
+          lng: Number(p.lng.toFixed(6)),
+        });
+      });
+
+      marker.on("click", function () {
+        selectAsset(asset.id);
+      });
+
+      marker.bindPopup(`
+        <div class="popup-content">
+          <div class="popup-title">${asset.label}</div>
+          <div class="popup-coords">${asset.lat}, ${asset.lng}</div>
+          <div class="popup-actions">
+            <button class="popup-btn" onclick="selectAsset('${asset.id}')">Editar</button>
+            <button class="popup-btn" onclick="deleteAsset('${asset.id}')">Eliminar</button>
+          </div>
+        </div>
+      `);
+
+      markers[asset.id] = marker;
+    }
+
+    function selectAsset(id) {
+      selectedAssetId = id;
+      const asset = assets.find((a) => a.id === id);
+
+      if (asset) {
+        document.getElementById("editor-id").textContent = asset.id;
+        document.getElementById("editor-label").value = asset.label;
+        document.getElementById("editor-type").value = asset.type;
+        document.getElementById("editor-lat").value = asset.lat ?? "";
+        document.getElementById("editor-lng").value = asset.lng ?? "";
+        document.getElementById("editor-props").value = JSON.stringify(
+          asset.props || {},
+          null,
+          2
+        );
+
+        document.getElementById("no-selection-message").style.display = "none";
+        document.getElementById("editor-panel").style.display = "block";
+
+        // resaltar en lista
+        [...document.querySelectorAll(".asset-item")].forEach((el) =>
+          el.classList.toggle(
+            "selected",
+            el.getAttribute("data-id") === asset.id
+          )
+        );
+
+        if (markers[asset.id]) markers[asset.id].openPopup();
+      }
+    }
+
+    function updateAsset(id, changes) {
+      const idx = assets.findIndex((a) => a.id === id);
+      if (idx === -1) return;
+      const prev = assets[idx];
+      const updated = { ...prev, ...changes };
+
+      assets[idx] = updated;
+
+      if (updated.type === "cab") {
+        if (markers[updated.id]) {
+          map.removeLayer(markers[updated.id]);
+          delete markers[updated.id];
+        }
+        addCableToMap(updated);
+      } else {
+        addMarker(updated);
+      }
+
+      // actualizar etiqueta
+      if (labelLayers[updated.id]) {
+        map.removeLayer(labelLayers[updated.id]);
+        delete labelLayers[updated.id];
+      }
+      addLabelToAsset(updated);
+
+      renderAssetsList();
+      updateStats();
+      calculateCableTotals();
+      saveData();
+    }
+
+    function deleteAsset(id) {
+      const asset = assets.find((a) => a.id === id);
+      if (!asset) return;
+
+      if (markers[id]) {
+        map.removeLayer(markers[id]);
+        delete markers[id];
+      }
+      if (polylines[id]) {
+        map.removeLayer(polylines[id]);
+        delete polylines[id];
+      }
+      if (labelLayers[id]) {
+        map.removeLayer(labelLayers[id]);
+        delete labelLayers[id];
+      }
+
+      // limpiar etiquetas de distancia de ese cable
+      if (asset.type === "cab" && asset.points && asset.points.length > 1) {
+        distanceLabels.forEach((m) => map.removeLayer(m));
+        distanceLabels = [];
+      }
+
+      assets = assets.filter((a) => a.id !== id);
+      renderAssetsList();
+      updateStats();
+      calculateCableTotals();
+      saveData();
+
+      selectedAssetId = null;
+      document.getElementById("editor-panel").style.display = "none";
+      document.getElementById("no-selection-message").style.display = "block";
+    }
+
+    function renderAssetsList() {
+      const list = document.getElementById("assets-list");
+      const q = (document.getElementById("search-input").value || "").toLowerCase();
+      list.innerHTML = "";
+
+      assets
+        .filter((a) => (a.label || "").toLowerCase().includes(q))
+        .forEach((asset) => {
+          const el = document.createElement("div");
+          el.className = "asset-item";
+          el.setAttribute("data-id", asset.id);
+          el.innerHTML = `
+            <div class="asset-header">
+              <div class="asset-name">${asset.label}</div>
+              <div class="asset-type">${asset.type.toUpperCase()}</div>
+            </div>
+            <div class="asset-coords">${asset.lat ?? "—"}, ${asset.lng ?? "—"}</div>
+          `;
+          el.addEventListener("click", () => selectAsset(asset.id));
+          list.appendChild(el);
+        });
+    }
+
+    function updateStats() {
+      const totalAssets = assets.filter((a) => a.type !== "cab").length;
+      const totalCables = assets.filter((a) => a.type === "cab").length;
+      const totalFO = assets
+        .filter((a) => a.type === "cab" && a.cableType === "fo")
+        .reduce((s, a) => s + (a.distance || 0), 0);
+
+      document.getElementById("stat-assets").textContent = totalAssets;
+      document.getElementById("stat-cables").textContent = totalCables;
+      document.getElementById("stat-distance").textContent = totalFO.toFixed(0) + " m";
+    }
+
+    // =========================
+    // Etiquetas en el mapa
+    // =========================
+    function addLabelToAsset(asset) {
+      if (!asset.label) return;
+
+      // Para cable muestra etiqueta en el centro aproximado
+      let position = [asset.lat, asset.lng];
+      if (asset.type === "cab" && asset.points && asset.points.length > 0) {
+        const mid = Math.floor(asset.points.length / 2);
+        position = [asset.points[mid][0], asset.points[mid][1]];
+      }
+
+      const labelText =
+        asset.type === "cab" && asset.distance
+          ? `${asset.label} (${(asset.distance || 0).toFixed(0)}m)`
+          : asset.label;
+
+      const label = L.divIcon({
+        className: "map-label",
+        html: labelText,
+        iconSize: [Math.max(labelText.length * 7, 24), 20],
+        iconAnchor: [Math.max(labelText.length * 3.5, 12), 10],
+      });
+
+      const m = L.marker(position, { icon: label, interactive: false }).addTo(map);
+      labelLayers[asset.id] = m;
+
+      if (!showLabels) map.removeLayer(m);
+    }
+
+    function addDistanceLabel(pointA, pointB, distance) {
+      const midLat = (pointA.lat + pointB.lat) / 2;
+      const midLng = (pointA.lng + pointB.lng) / 2;
+
+      const label = L.divIcon({
+        className: "distance-label",
+        html: `${distance.toFixed(2)}m`,
+        iconSize: [Math.max(`${distance.toFixed(2)}m`.length * 7, 24), 18],
+        iconAnchor: [Math.max(`${distance.toFixed(2)}m`.length * 3.5, 12), 9],
+      });
+
+      const marker = L.marker([midLat, midLng], {
+        icon: label,
+        interactive: false,
+      }).addTo(map);
+
+      distanceLabels.push(marker);
+      if (!showLabels) map.removeLayer(marker);
+    }
+
+    // =========================
+    // Cables
+    // =========================
+    function addCablePoint(latlng) {
+      cablePoints.push(latlng);
+
+      // Punto temporal
+      const m = L.circleMarker(latlng, {
+        radius: 5,
+        color: currentCableType === "fo" ? "#3b82f6" : "#f59e0b",
+        fillColor: currentCableType === "fo" ? "#3b82f6" : "#f59e0b",
+        fillOpacity: 0.8,
+      }).addTo(map);
+      tempMarkers.push(m);
+
+      // línea temporal
+      if (cablePoints.length > 1) {
+        const pl = L.polyline(cablePoints, {
+          color: currentCableType === "fo" ? "#3b82f6" : "#f59e0b",
+          weight: 3,
+          dashArray: "5, 10",
+        }).addTo(map);
+        tempPolylines.push(pl);
+
+        // totales
+        const total = calculateTotalDistance(cablePoints);
+        updateDistanceDisplay(total);
+
+        // último segmento
+        const last = calculateDistance(
+          cablePoints[cablePoints.length - 2].lat,
+          cablePoints[cablePoints.length - 2].lng,
+          cablePoints[cablePoints.length - 1].lat,
+          cablePoints[cablePoints.length - 1].lng
+        );
+        document.getElementById(
+          "segment-distance"
+        ).textContent = `Último segmento: ${last.toFixed(2)} metros`;
+
+        addDistanceLabel(
+          cablePoints[cablePoints.length - 2],
+          cablePoints[cablePoints.length - 1],
+          last
+        );
+      }
+    }
+
+    function finishCableDrawing() {
+      const id = generateId();
+      const totalDistance = calculateTotalDistance(cablePoints);
+
+      const asset = {
+        id,
+        type: "cab",
+        cableType: currentCableType,
+        label: `CAB_${id.substring(0, 4)}`,
+        points: cablePoints.map((p) => [Number(p.lat.toFixed(6)), Number(p.lng.toFixed(6))]),
+        distance: totalDistance,
+        props: {},
+      };
+
+      assets.push(asset);
+
+      // limpiar temporales
+      tempMarkers.forEach((m) => map.removeLayer(m));
+      tempPolylines.forEach((l) => map.removeLayer(l));
+      tempMarkers = [];
+      tempPolylines = [];
+      cablePoints = [];
+      drawingCable = false;
+
+      updateDistanceDisplay(0);
+      document.getElementById("segment-distance").textContent =
+        "Último segmento: 0.00 metros";
+
+      addCableToMap(asset);
+      addLabelToAsset(asset);
+      renderAssetsList();
+      updateStats();
+      calculateCableTotals();
+      saveData();
+      selectAsset(id);
+    }
+
+    function addCableToMap(asset) {
+      if (polylines[asset.id]) map.removeLayer(polylines[asset.id]);
+
+      const poly = L.polyline(asset.points, {
+        color: asset.cableType === "fo" ? "#3b82f6" : "#f59e0b",
+        weight: 4,
+      }).addTo(map);
+
+      poly.on("click", () => selectAsset(asset.id));
+
+      const distance = asset.distance || 0;
+      poly.bindPopup(`
+        <div class="popup-content">
+          <div class="popup-title">${asset.label}</div>
+          <div class="popup-coords">${distance.toFixed(2)} metros</div>
+          <div class="popup-actions">
+            <button class="popup-btn" onclick="selectAsset('${asset.id}')">Editar</button>
+            <button class="popup-btn" onclick="deleteAsset('${asset.id}')">Eliminar</button>
+          </div>
+        </div>
+      `);
+
+      polylines[asset.id] = poly;
+    }
+
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371000; // Radio de la Tierra en metros
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLng = ((lng2 - lng1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function calculateTotalDistance(points) {
+      let total = 0;
+      for (let i = 1; i < points.length; i++) {
+        total += calculateDistance(
+          points[i - 1].lat,
+          points[i - 1].lng,
+          points[i].lat,
+          points[i].lng
+        );
+      }
+      return total;
+    }
+
+    function updateDistanceDisplay(distance) {
+      document.getElementById(
+        "cable-distance"
+      ).textContent = `Distancia: ${distance.toFixed(2)} metros`;
+    }
+
+    function calculateCableTotals() {
+      let totalFO = 0;
+      let totalDrop = 0;
+
+      assets
+        .filter((a) => a.type === "cab")
+        .forEach((cable) => {
+          if (cable.cableType === "fo") {
+            totalFO += cable.distance || 0;
+          } else if (cable.cableType === "drop") {
+            totalDrop += cable.distance || 0;
+          }
+        });
+
+      document.getElementById("total-fo").textContent =
+        totalFO.toFixed(0) + " m";
+      document.getElementById("total-drop").textContent =
+        totalDrop.toFixed(0) + " m";
+    }
+
+    function switchMapType(type) {
+      if (currentMapType === type) return;
+
+      // Remover todas las capas de mapa existentes
+      map.removeLayer(standardTileLayer);
+      map.removeLayer(satelliteTileLayer);
+      map.removeLayer(googleEarthTileLayer);
+
+      // Añadir la capa seleccionada
+      if (type === "standard") {
+        standardTileLayer.addTo(map);
+        document.getElementById("standard-map-btn").classList.add("active");
+        document.getElementById("satellite-map-btn").classList.remove("active");
+        document.getElementById("googleearth-map-btn").classList.remove("active");
+      } else if (type === "satellite") {
+        satelliteTileLayer.addTo(map);
+        document.getElementById("satellite-map-btn").classList.add("active");
+        document.getElementById("standard-map-btn").classList.remove("active");
+        document.getElementById("googleearth-map-btn").classList.remove("active");
+      } else if (type === "googleearth") {
+        googleEarthTileLayer.addTo(map);
+        document.getElementById("googleearth-map-btn").classList.add("active");
+        document.getElementById("standard-map-btn").classList.remove("active");
+        document.getElementById("satellite-map-btn").classList.remove("active");
+      }
+
+      currentMapType = type;
+      localStorage.setItem("ftth_sv_rt_map_type", type);
+    }
+
+    function toggleLabels() {
+      showLabels = !showLabels;
+
+      Object.values(labelLayers).forEach((layer) => {
+        if (showLabels) {
+          map.addLayer(layer);
+        } else {
+          map.removeLayer(layer);
+        }
+      });
+
+      distanceLabels.forEach((label) => {
+        if (showLabels) {
+          map.addLayer(label);
+        } else {
+          map.removeLayer(label);
+        }
+      });
+    }
+
+    function exportData(format) {
+      if (format === "csv") {
+        exportToCSV();
+      } else if (format === "kml") {
+        exportToKML();
+      }
+    }
+
+    function exportToCSV() {
+      let csvContent = "ID,Tipo,Etiqueta,Latitud,Longitud,Distancia,Propiedades\n";
+
+      assets.forEach((asset) => {
+        const row = [
+          asset.id,
+          asset.type,
+          `"${asset.label || ""}"`,
+          asset.lat || "",
+          asset.lng || "",
+          asset.distance || "",
+          `"${JSON.stringify(asset.props || {}).replace(/"/g, '""')}"`
+        ].join(",");
+        csvContent += row + "\n";
+      });
+
+      const filename = `ftth_map_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      downloadFile(filename, csvContent, "text/csv;charset=utf-8;");
+    }
+
+  function exportToKML() {
+  let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>FTTH Map Export</name>
+    <description>Exportado desde FTTH-SV-RT</description>`;
+
+  // Mapeo de iconos según tipo de activo
+  const iconMap = {
+    pole: "http://maps.google.com/mapfiles/kml/paddle/P.png",
+    nap: "http://maps.google.com/mapfiles/kml/paddle/N.png",
+    fat: "http://maps.google.com/mapfiles/kml/paddle/F.png",
+    c12: "http://maps.google.com/mapfiles/kml/paddle/C.png"
+  };
+
+  // Añadir marcadores
+  assets
+    .filter(asset => asset.type !== "cab")
+    .forEach(asset => {
+      const iconUrl = iconMap[asset.type] || "http://maps.google.com/mapfiles/kml/paddle/wht-blank.png";
+
+      kmlContent += `
+    <Placemark>
+      <name>${escapeXML(asset.label)}</name>
+      <description>Tipo: ${asset.type}</description>
+      <Style>
+        <IconStyle>
+          <Icon>
+            <href>${iconUrl}</href>
+          </Icon>
+        </IconStyle>
+      </Style>
+      <Point>
+        <coordinates>${asset.lng},${asset.lat},0</coordinates>
+      </Point>
+    </Placemark>`;
+    });
+
+  // Añadir cables (líneas + etiquetas intermedias)
+  assets
+    .filter(asset => asset.type === "cab")
+    .forEach(asset => {
+      const color = asset.cableType === "fo" ? "ff0000ff" : "ff00aaff"; // Azul FO, cian DROP
+
+      // Cable completo
+      kmlContent += `
+    <Placemark>
+      <name>${escapeXML(asset.label)} (${asset.distance.toFixed(2)} m)</name>
+      <description>${asset.distance.toFixed(2)} metros - Tipo: ${asset.cableType}</description>
+      <Style>
+        <LineStyle>
+          <color>${color}</color>
+          <width>4</width>
+        </LineStyle>
+      </Style>
+      <LineString>
+        <coordinates>${asset.points.map(p => `${p[1]},${p[0]},0`).join(" ")}</coordinates>
+      </LineString>
+    </Placemark>`;
+
+      // Tramos intermedios con etiquetas
+      for (let i = 0; i < asset.points.length - 1; i++) {
+        const [lat1, lng1] = asset.points[i];
+        const [lat2, lng2] = asset.points[i + 1];
+
+        // Calcular distancia en metros
+        const R = 6371000; // radio tierra m
+        const toRad = x => (x * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const dist = R * c;
+
+        // Punto medio
+        const midLat = (lat1 + lat2) / 2;
+        const midLng = (lng1 + lng2) / 2;
+
+        // Etiqueta en el punto medio
+        kmlContent += `
+    <Placemark>
+      <name>${dist.toFixed(2)} m</name>
+      <Style>
+        <IconStyle>
+          <scale>0</scale> <!-- Ocultamos el ícono -->
+        </IconStyle>
+        <LabelStyle>
+          <color>ffffffff</color> <!-- Blanco -->
+          <scale>1</scale>
+        </LabelStyle>
+      </Style>
+      <Point>
+        <coordinates>${midLng},${midLat},0</coordinates>
+      </Point>
+    </Placemark>`;
+      }
+    });
+
+  kmlContent += `
+  </Document>
+</kml>`;
+
+  const filename = `ftth_map_export_${new Date().toISOString().slice(0, 10)}.kml`;
+  downloadFile(filename, kmlContent, "application/vnd.google-earth.kml+xml;charset=utf-8;");
+}
+
+
+
+    function importCSV(content) {
+      // Implementar lógica de importación CSV
+      alert('Importación CSV aún no implementada');
+    }
+
+    function importKML(content) {
+      // Implementar lógica de importación KML
+      alert('Importación KML aún no implementada');
+    }
+
+    function clearAllData() {
+      if (!confirm("¿Estás seguro de que deseas eliminar todos los datos? Esta acción no se puede deshacer.")) {
+        return;
+      }
+
+      // Eliminar todos los marcadores
+      Object.values(markers).forEach(marker => map.removeLayer(marker));
+      markers = {};
+
+      // Eliminar todas las polilíneas
+      Object.values(polylines).forEach(polyline => map.removeLayer(polyline));
+      polylines = {};
+
+      // Eliminar todas las etiquetas
+      Object.values(labelLayers).forEach(label => map.removeLayer(label));
+      labelLayers = {};
+
+      // Eliminar etiquetas de distancia
+      distanceLabels.forEach(label => map.removeLayer(label));
+      distanceLabels = [];
+
+      // Limpiar arrays temporales
+      tempMarkers.forEach(m => map.removeLayer(m));
+      tempPolylines.forEach(l => map.removeLayer(l));
+      tempMarkers = [];
+      tempPolylines = [];
+      cablePoints = [];
+      drawingCable = false;
+
+      // Limpiar datos
+      assets = [];
+      selectedAssetId = null;
+
+      // Actualizar UI
+      renderAssetsList();
+      updateStats();
+      calculateCableTotals();
+      updateDistanceDisplay(0);
+      document.getElementById("segment-distance").textContent = "Último segmento: 0.00 metros";
+
+      // Limpiar localStorage
+      localStorage.removeItem("ftth_sv_rt_assets");
+
+      // Restablecer panel de edición
+      document.getElementById("editor-panel").style.display = "none";
+      document.getElementById("no-selection-message").style.display = "block";
+    }
+
+    function getCurrentLocation(highAccuracy) {
+      if (!navigator.geolocation) {
+        alert("La geolocalización no es compatible con este navegador.");
+        return;
+      }
+
+      const options = {
+        enableHighAccuracy: highAccuracy,
+        timeout: 10000,
+        maximumAge: 0
+      };
+
+      document.getElementById("gps-status").textContent = "Obteniendo ubicación...";
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+
+          document.getElementById("gps-status").textContent = 
+            `Precisión: ±${accuracy.toFixed(1)} metros`;
+
+          // Centrar mapa en la ubicación
+          map.setView([lat, lng], 18);
+
+          // Agregar marcador temporal
+          const marker = L.circleMarker([lat, lng], {
+            radius: 8,
+            color: "#10b981",
+            fillColor: "#10b981",
+            fillOpacity: 0.7
+          }).addTo(map);
+
+          setTimeout(() => {
+            map.removeLayer(marker);
+          }, 5000);
+
+          // Confirmar para agregar activo
+          if (confirm(`¿Agregar activo en esta ubicación? (Precisión: ±${accuracy.toFixed(1)}m)`)) {
+            const type = document.getElementById("gps-type").value;
+            const label = document.getElementById("gps-label").value || 
+                         `${type.toUpperCase()}_GPS_${new Date().getTime().toString().slice(-4)}`;
+            
+            document.getElementById("asset-type-selector").value = type;
+            addAsset(lat, lng, label);
+            closeGpsModal();
+          }
+        },
+        (error) => {
+          let errorMsg = "Error al obtener la ubicación: ";
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMsg += "Permiso denegado";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMsg += "Posición no disponible";
+              break;
+            case error.TIMEOUT:
+              errorMsg += "Tiempo de espera agotado";
+              break;
+            default:
+              errorMsg += "Error desconocido";
+          }
+          document.getElementById("gps-status").textContent = errorMsg;
+        },
+        options
+      );
+    }
+
+    function openExportModal() {
+      document.getElementById("export-modal").style.display = "flex";
+    }
+
+    function closeExportModal() {
+      document.getElementById("export-modal").style.display = "none";
+      document.getElementById("share-options-container").style.display = "none";
+      selectedExportFormat = null;
+    }
+
+    function openGpsModal() {
+      document.getElementById("gps-modal").style.display = "flex";
+    }
+
+    function closeGpsModal() {
+      document.getElementById("gps-modal").style.display = "none";
+      document.getElementById("gps-status").textContent = "";
+    }
+
+    // =========================
+    // Inicialización y Event Listeners
+    // =========================
+    document.addEventListener("DOMContentLoaded", function() {
+      initMap();
+      loadSavedData();
+
+      // Selector de tipo de mapa
+      document.getElementById("standard-map-btn").addEventListener("click", () => switchMapType("standard"));
+      document.getElementById("satellite-map-btn").addEventListener("click", () => switchMapType("satellite"));
+      document.getElementById("googleearth-map-btn").addEventListener("click", () => switchMapType("googleearth"));
+
+      // Selector de tipo de cable
+      document.querySelectorAll(".cable-option").forEach(option => {
+        option.addEventListener("click", function() {
+          document.querySelectorAll(".cable-option").forEach(opt => opt.classList.remove("selected"));
+          this.classList.add("selected");
+          currentCableType = this.getAttribute("data-type");
+        });
+      });
+
+      // Botones de control del mapa
+      document.getElementById("locate-me-btn").addEventListener("click", function() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              map.setView(
+                [position.coords.latitude, position.coords.longitude],
+                16
+              );
+            },
+            (error) => {
+              alert("No se pudo obtener la ubicación: " + error.message);
+            }
+          );
+        } else {
+          alert("La geolocalización no es compatible con este navegador.");
+        }
+      });
+
+      document.getElementById("zoom-in-btn").addEventListener("click", function() {
+        map.zoomIn();
+      });
+
+      document.getElementById("zoom-out-btn").addEventListener("click", function() {
+        map.zoomOut();
+      });
+
+      document.getElementById("toggle-labels-btn").addEventListener("click", function() {
+        toggleLabels();
+      });
+
+      // Búsqueda
+      document.getElementById("search-input").addEventListener("input", renderAssetsList);
+
+      // Editor
+      document.getElementById("editor-label").addEventListener("change", function() {
+        if (selectedAssetId) {
+          updateAsset(selectedAssetId, { label: this.value });
+        }
+      });
+
+      document.getElementById("editor-type").addEventListener("change", function() {
+        if (selectedAssetId) {
+          updateAsset(selectedAssetId, { type: this.value });
+        }
+      });
+
+      document.getElementById("editor-lat").addEventListener("change", function() {
+        if (selectedAssetId) {
+          updateAsset(selectedAssetId, { lat: parseFloat(this.value) });
+        }
+      });
+
+      document.getElementById("editor-lng").addEventListener("change", function() {
+        if (selectedAssetId) {
+          updateAsset(selectedAssetId, { lng: parseFloat(this.value) });
+        }
+      });
+
+      document.getElementById("editor-props").addEventListener("change", function() {
+        if (selectedAssetId) {
+          try {
+            const props = JSON.parse(this.value);
+            updateAsset(selectedAssetId, { props });
+          } catch (e) {
+            alert("Error en el formato JSON: " + e.message);
+          }
+        }
+      });
+
+      document.getElementById("delete-asset").addEventListener("click", function() {
+        if (selectedAssetId) {
+          deleteAsset(selectedAssetId);
+        }
+      });
+
+      // Agregar punto manual con coordenadas
+      document.getElementById("add-manual-point").addEventListener("click", function() {
+        const lat = parseFloat(document.getElementById("manual-lat").value);
+        const lng = parseFloat(document.getElementById("manual-lng").value);
+        
+        if (isNaN(lat) || isNaN(lng)) {
+          alert("Por favor ingresa coordenadas válidas");
+          return;
+        }
+        
+        addAsset(lat, lng);
+      });
+
+      // Limpiar pantalla
+      document.getElementById("clear-screen").addEventListener("click", clearAllData);
+      document.getElementById("clear-sidebar-btn").addEventListener("click", clearAllData);
+
+      // Exportar/Importar
+      document.getElementById("export-data").addEventListener("click", openExportModal);
+      document.getElementById("close-export").addEventListener("click", closeExportModal);
+
+      document.querySelectorAll(".export-option").forEach(option => {
+        option.addEventListener("click", function() {
+          selectedExportFormat = this.getAttribute("data-format");
+          document.getElementById("share-options-container").style.display = "block";
+        });
+      });
+
+      document.querySelectorAll(".share-option").forEach(option => {
+        option.addEventListener("click", function() {
+          const action = this.getAttribute("data-action");
+          if (action === "save" && selectedExportFormat) {
+            exportData(selectedExportFormat);
+            closeExportModal();
+          } else {
+            alert("Función de compartir no implementada aún");
+          }
+        });
+      });
+
+      document.getElementById("import-data").addEventListener("change", function(e) {
+        if (this.files.length > 0) {
+          importData(this.files[0]);
+          this.value = ""; // Reset input
+        }
+      });
+
+      // GPS
+      document.getElementById("add-gps-btn").addEventListener("click", openGpsModal);
+      document.getElementById("gps-cancel").addEventListener("click", closeGpsModal);
+      document.getElementById("gps-confirm").addEventListener("click", function() {
+        const highAccuracy = document.getElementById("gps-accuracy").value === "true";
+        getCurrentLocation(highAccuracy);
+      });
+
+      // Toggle sidebar
+      document.getElementById("toggle-sidebar").addEventListener("click", function() {
+        document.getElementById("sidebar").classList.toggle("hidden");
+      });
+
+      // Inicializar estadísticas
+      updateStats();
+      calculateCableTotals();
+    });
+  </script>
+</body>
+</html>
